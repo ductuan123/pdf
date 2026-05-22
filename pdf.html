@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Công Cụ Chuyển Ảnh Thành PDF & OCR Cao Cấp</title>
+    <!-- Nhúng thư viện từ CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    
+    <style>
+        :root {
+            --primary: #3498db;
+            --success: #2ecc71;
+            --danger: #e74c3c;
+            --dark: #2c3e50;
+            --gray: #7f8c8d;
+            --light: #f8f9fa;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #e0eafc, #cfdef3);
+            margin: 0;
+            padding: 40px 20px;
+            color: #333;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--dark);
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: var(--gray);
+            margin-bottom: 30px;
+        }
+
+        /* Vùng kéo thả ảnh */
+        .upload-zone {
+            border: 2px dashed var(--primary);
+            padding: 40px 20px;
+            text-align: center;
+            border-radius: 12px;
+            background: #f0f7ff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .upload-zone:hover {
+            background: #e1effe;
+            border-color: #2980b9;
+        }
+
+        .upload-zone svg {
+            width: 50px;
+            height: 50px;
+            fill: var(--primary);
+            margin-bottom: 10px;
+        }
+
+        #fileInput { display: none; }
+
+        /* Danh sách ảnh xem trước */
+        .preview-container {
+            margin-top: 25px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(110px, 110px));
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .preview-item {
+            width: 110px;
+            height: 110px;
+            object-fit: cover;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        /* Thanh trạng thái & Tiến trình */
+        .status-container {
+            margin: 25px 0;
+            text-align: center;
+        }
+
+        .status {
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 10px;
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 8px;
+            background-color: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            display: none;
+        }
+
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background-color: var(--success);
+            transition: width 0.2s ease;
+        }
+
+        /* Nút chức năng */
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 25px;
+        }
+
+        button {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-pdf { background-color: var(--danger); color: white; }
+        .btn-pdf:hover { background-color: #c0392b; transform: translateY(-2px); }
+        
+        .btn-ocr { background-color: var(--success); color: white; }
+        .btn-ocr:hover { background-color: #27ae60; transform: translateY(-2px); }
+
+        .btn-secondary { background-color: #ecf0f1; color: var(--dark); font-size: 13px; padding: 8px 16px;}
+        .btn-secondary:hover { background-color: #bdc3c7; }
+
+        button:disabled {
+            background-color: #bdc3c7 !important;
+            cursor: not-allowed;
+            transform: none !important;
+            opacity: 0.7;
+        }
+
+        /* Khu vực kết quả */
+        .output-box {
+            margin-top: 35px;
+            border-top: 2px solid #eee;
+            padding-top: 25px;
+            display: none;
+        }
+
+        .output-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .output-header h3 { margin: 0; color: var(--dark); }
+        
+        .action-tools { display: flex; gap: 10px; }
+
+        textarea {
+            width: 100%;
+            height: 250px;
+            padding: 15px;
+            border: 1px solid #ced4da;
+            border-radius: 8px;
+            box-sizing: border-box;
+            resize: vertical;
+            font-size: 15px;
+            line-height: 1.6;
+            background-color: var(--light);
+        }
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Chuyển Ảnh Sang PDF & Trích Xuất Chữ</h1>
+    <div class="subtitle">Ứng dụng bảo mật - Xử lý trực tiếp 100% trên trình duyệt của bạn</div>
+    
+    <!-- Vùng chọn/Kéo thả ảnh -->
+    <div class="upload-zone" onclick="document.getElementById('fileInput').click()" id="dropZone">
+        <svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
+        <p style="margin: 5px 0 0 0; font-weight: 500;">Click hoặc Kéo & Thả nhiều ảnh vào đây</p>
+        <span style="font-size: 12px; color: var(--gray);">Hỗ trợ: PNG, JPG, JPEG, WEBP</span>
+        <input type="file" id="fileInput" multiple accept="image/*" onchange="handleFiles(this.files)">
+    </div>
+
+    <!-- Xem trước ảnh -->
+    <div class="preview-container" id="previewContainer"></div>
+
+    <!-- Trạng thái & Thanh tiến trình tiến độ -->
+    <div class="status-container">
+        <div class="status" id="statusMessage">Chưa có ảnh nào được chọn.</div>
+        <div class="progress-bar-container" id="progressContainer">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+    </div>
+
+    <!-- Các nút hành động chính -->
+    <div class="btn-group">
+        <button class="btn-pdf" id="btnPdf" onclick="convertToPdf()" disabled>
+            📄 Xuất file PDF
+        </button>
+        <button class="btn-ocr" id="btnOcr" onclick="extractText()" disabled>
+            🔍 Trích xuất chữ (OCR)
+        </button>
+    </div>
+
+    <!-- Vùng hiển thị kết quả chữ tìm được -->
+    <div class="output-box" id="outputBox">
+        <div class="output-header">
+            <h3>Văn bản trích xuất được:</h3>
+            <div class="action-tools">
+                <button class="btn-secondary" onclick="copyText()">📋 Sao chép</button>
+                <button class="btn-secondary" onclick="downloadTxt()">💾 Tải file .txt</button>
+            </div>
+        </div>
+        <textarea id="txtResult" placeholder="Nội dung chữ trong ảnh sẽ hiển thị tại đây..."></textarea>
+    </div>
+</div>
+
+<script>
+    let selectedFiles = [];
+
+    // Xử lý sự kiện Kéo & Thả ảnh trực tiếp vào giao diện
+    const dropZone = document.getElementById('dropZone');
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => { e.preventDefault(); dropZone.style.background = "#e1effe"; }, false);
+    });
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => { e.preventDefault(); dropZone.style.background = "#f0f7ff"; }, false);
+    });
+    dropZone.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        handleFiles(dt.files);
+    });
+
+    // Hàm đọc và hiển thị ảnh xem trước khi người dùng tải ảnh lên
+    function handleFiles(files) {
+        // Chỉ lọc lấy các file là hình ảnh
+        selectedFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+        const previewContainer = document.getElementById('previewContainer');
+        previewContainer.innerHTML = '';
+        
+        if (selectedFiles.length > 0) {
+            document.getElementById('btnPdf').disabled = false;
+            document.getElementById('btnOcr').disabled = false;
+            
+            selectedFiles.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = document.createElement('img');
+                    img.src = e.target.result;
+                    img.classList.add('preview-item');
+                    previewContainer.appendChild(img);
+                }
+                reader.readAsDataURL(file);
+            });
+            document.getElementById('statusMessage').innerText = `🎯 Đã nhận ${selectedFiles.length} ảnh. Sẵn sàng xử lý!`;
+        } else {
+            document.getElementById('btnPdf').disabled = true;
+            document.getElementById('btnOcr').disabled = true;
+            document.getElementById('statusMessage').innerText = `Chưa có ảnh nào hợp lệ được chọn.`;
+        }
+    }
+
+    // TÍNH NĂNG 1: Gom các file ảnh thành 1 file PDF thống nhất
+    async function convertToPdf() {
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF();
+        const status = document.getElementById('statusMessage');
+        
+        status.innerText = "⏳ Đang tiến hành tạo tệp PDF...";
+
+        for (let i = 0; i < selectedFiles.length; i++) {
+            await new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.src = e.target.result;
+                    img.onload = function() {
+                        const pageWidth = pdf.internal.pageSize.getWidth();
+                        const pageHeight = pdf.internal.pageSize.getHeight();
+                        
+                        let imgWidth = img.width;
+                        let imgHeight = img.height;
+                        const ratio = imgWidth / imgHeight;
+
+                        // Tự động căn tỷ lệ hình ảnh vừa khít trang giấy A4
+                        if (imgWidth > pageWidth) {
+                            imgWidth = pageWidth - 20;
+                            imgHeight = imgWidth / ratio;
+                        }
+                        if (imgHeight > pageHeight) {
+                            imgHeight = pageHeight - 20;
+                            imgWidth = imgHeight * ratio;
+                        }
+
+                        if (i > 0) pdf.addPage();
+                        pdf.addImage(e.target.result, 'JPEG', 10, 10, imgWidth, imgHeight);
+                        resolve();
+                    };
+                };
+                reader.readAsDataURL(selectedFiles[i]);
+            });
+        }
+
+        pdf.save('Document_Gop_Anh.pdf');
+        status.innerText = "✅ Đã xuất và tải xuống file PDF thành công!";
+    }
+
+    // TÍNH NĂNG 2: Quét và bóc tách chữ từ ảnh (Hỗ trợ tiếng Việt) kèm thanh tiến trình
+    async function extractText() {
+        const status = document.getElementById('statusMessage');
+        const txtResult = document.getElementById('txtResult');
+        const outputBox = document.getElementById('outputBox');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+        
+        txtResult.value = "";
+        outputBox.style.display = "block";
+        progressContainer.style.display = "block";
+        progressBar.style.width = "0%";
+        
+        status.innerText = "🤖 Đang khởi tạo bộ trí tuệ nhân tạo OCR...";
+
+        // Khởi tạo công cụ quét đa ngôn ngữ (Tiếng Việt + Anh)
+        const worker = await Tesseract.createWorker(['vie', 'eng']);
+
+        for (let i = 0; i < selectedFiles.length; i++) {
+            status.innerText = `🔍 Đang đọc dữ liệu ảnh ${i + 1}/${selectedFiles.length}...`;
+            
+            try {
+                // Sử dụng tính năng logger để cập nhật thanh tiến trình chạy %
+                const result = await worker.recognize(selectedFiles[i]);
+                
+                // Cập nhật thanh tiến độ dựa trên số lượng ảnh hoàn thành
+                let percentComplete = ((i + 1) / selectedFiles.length) * 100;
+                progressBar.style.width = `${percentComplete}%`;
+                
+                txtResult.value += `=== CHỮ TRÍCH XUẤT TỪ ẢNH KHU VỰC ${i + 1} ===\n` + result.data.text + "\n\n";
+            } catch (error) {
+                console.error(error);
+                txtResult.value += `[❌ Lỗi hệ thống không thể đọc ảnh số ${i + 1}]\n\n`;
+            }
+        }
+
+        await worker.terminate();
+        status.innerText = "🎉 Hoàn thành quét toàn bộ hình ảnh!";
+        setTimeout(() => { progressContainer.style.display = "none"; }, 2000); // Ẩn thanh tiến trình sau khi xong
+    }
+
+    // Tiện ích phụ: Sao chép nhanh văn bản
+    function copyText() {
+        const txtResult = document.getElementById('txtResult');
+        txtResult.select();
+        navigator.clipboard.writeText(txtResult.value);
+        alert("Đã sao chép văn bản thành công vào bộ nhớ tạm!");
+    }
+
+    // Tiện ích phụ: Tải file văn bản đính kèm (.txt) về máy
+    function downloadTxt() {
+        const text = document.getElementById('txtResult').value;
+        const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = "Van_Ban_Trich_Xuat.txt";
+        link.click();
+    }
+</script>
+
+</body>
+</html>
